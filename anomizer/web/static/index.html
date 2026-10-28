@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="referrer" content="no-referrer">
+  <title>Anomizer — локальная анонимизация видео</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <div class="brand-text">
+          <span class="brand-name">Anomizer</span>
+          <span class="brand-sub">локальная анонимизация видео</span>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-local"><span class="dot" aria-hidden="true"></span>Только этот компьютер</span>
+        <span class="badge" id="serverState">Локальный сервер</span>
+        <span class="badge" id="saveState" hidden>Настройки сохранены</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="openAnotherBtn" hidden>Открыть видео</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="logoutBtn" hidden>Выйти</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="authView" class="auth-view" hidden>
+        <div class="auth-card">
+          <p class="eyebrow">Защищённый локальный доступ</p>
+          <h1>Введите код доступа</h1>
+          <p class="muted">Программа печатает ссылку с кодом в терминале. Код передаётся только локальному серверу на этом компьютере и не попадает в интернет.</p>
+          <form id="authForm" class="auth-form" autocomplete="off">
+            <label class="field-label" for="tokenInput">Код доступа</label>
+            <input id="tokenInput" class="input" type="password" name="token" autocomplete="off" spellcheck="false" required>
+            <button type="submit" class="btn btn-primary btn-wide" id="authBtn">Открыть интерфейс</button>
+          </form>
+          <p class="form-error" id="authError" role="alert" hidden></p>
+          <p class="hint">Если ссылка потерялась, перезапустите программу. Код действует только до остановки сервера.</p>
+        </div>
+      </section>
+
+      <section id="appView" hidden>
+        <section id="openPanel" class="panel open-panel" aria-labelledby="openTitle">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Начало работы</p>
+              <h1 id="openTitle">Откройте видео</h1>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" id="closeOpenPanelBtn" hidden>Свернуть</button>
+          </div>
+          <p class="muted">Файл обрабатывается на этом компьютере. Оригинал не изменяется; результат появится отдельным MP4.</p>
+          <div class="open-grid">
+            <form id="pathForm" class="open-card" autocomplete="off">
+              <h2>Путь к файлу</h2>
+              <p class="hint">Для файлов, которые уже лежат на диске. Ничего не копируется.</p>
+              <label class="field-label" for="pathInput">Полный путь</label>
+              <input id="pathInput" class="input" type="text" placeholder="/home/you/Videos/video.mp4" spellcheck="false" required>
+              <button type="submit" class="btn btn-primary" id="pathOpenBtn">Открыть по пути</button>
+              <p class="form-error" id="openPathError" role="alert" hidden></p>
+            </form>
+            <div class="open-card dropzone" id="dropzone">
+              <h2>Загрузить файл</h2>
+              <p class="hint">Файл копируется во временную папку и удаляется при закрытии видео или остановке сервера.</p>
+              <input id="fileInput" type="file" accept="video/*,.mp4,.m4v,.mov,.mkv,.avi,.mts,.m2ts,.webm,.mpg,.mpeg" hidden>
+              <label for="fileInput" class="btn btn-secondary" id="chooseFileBtn">Выбрать видео</label>
+              <p class="drop-hint">или перетащите файл сюда</p>
+              <div class="upload-progress" id="uploadProgressWrap" hidden>
+                <progress id="uploadProgress" max="1" value="0"></progress>
+                <span id="uploadProgressText" class="hint">0%</span>
+                <button type="button" class="btn btn-ghost btn-sm" id="cancelUploadBtn">Отмена</button>
+              </div>
+              <p class="form-error" id="openUploadError" role="alert" hidden></p>
+            </div>
+          </div>
+          <div class="open-footer">
+            <p class="hint">Поддерживаются MP4, MOV, MTS/AVCHD, MKV и другие форматы, которые читает FFmpeg. Большие файлы обрабатываются по кадрам, без полной загрузки в память.</p>
+            <p class="hint">Лимит загрузки: 64 ГБ.</p>
+          </div>
+        </section>
+
+        <section id="workView" hidden>
+          <div class="workspace">
+            <div class="workspace-main">
+              <section class="panel preview-panel" aria-labelledby="previewTitle">
+                <div class="panel-head compact">
+                  <div>
+                    <p class="eyebrow">Предпросмотр</p>
+                    <h2 id="previewTitle">Кадр</h2>
+                  </div>
+                  <div class="preview-badges">
+                    <span class="badge" id="previewRes">—</span>
+                    <span class="badge" id="previewDecoder" hidden></span>
+                  </div>
+                </div>
+                <div class="preview-stage" id="previewStage">
+                  <div class="preview-placeholder" id="previewPlaceholder"><span>Видео не открыто</span></div>
+                  <img id="stillImage" class="preview-image" alt="Кадр видео" hidden>
+                  <img id="liveImage" class="preview-image" alt="Воспроизведение" hidden>
+                  <div class="preview-overlay"><span id="timeBadge">00:00.000</span><span id="rangeBadge"></span></div>
+                  <div class="preview-loading" id="previewLoading" hidden>Загрузка кадра…</div>
+                </div>
+                <div class="transport">
+                  <button type="button" class="play-btn" id="playBtn" aria-label="Воспроизвести" aria-pressed="false" disabled><span id="playIcon">▶</span></button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="stillBtn" disabled>Обновить кадр</button>
+                  <div class="time-readout" id="transportTime">00:00.000 / 00:00.000</div>
+                  <div class="spacer"></div>
+                  <span class="hint" id="playHint">Пробел — играть/пауза</span>
+                </div>
+              </section>
+
+              <section class="panel timeline-panel" aria-labelledby="timelineTitle">
+                <div class="panel-head compact">
+                  <div>
+                    <p class="eyebrow">Монтаж</p>
+                    <h2 id="timelineTitle">Фрагмент и эффекты</h2>
+                  </div>
+                  <div class="legend">
+                    <span class="legend-item"><i class="swatch swatch-blur"></i>Блюр</span>
+                    <span class="legend-item"><i class="swatch swatch-voice"></i>Голос</span>
+                    <span class="legend-item"><i class="swatch swatch-trim"></i>Фрагмент</span>
+                  </div>
+                </div>
+                <div class="timeline-wrap">
+                  <svg id="timeline" class="timeline" viewBox="0 0 1000 72" preserveAspectRatio="none" role="slider" aria-label="Позиция воспроизведения" tabindex="0">
+                    <rect class="tl-bg" x="0" y="0" width="1000" height="72"></rect>
+                    <rect class="tl-trim" id="tlTrim" x="0" y="0" width="1000" height="72"></rect>
+                    <g id="tlBlurGroup"></g>
+                    <g id="tlVoiceGroup"></g>
+                    <line class="tl-trim-line" id="tlTrimStart" x1="0" y1="0" x2="0" y2="72"></line>
+                    <line class="tl-trim-line" id="tlTrimEnd" x1="1000" y1="0" x2="1000" y2="72"></line>
+                    <line class="tl-playhead" id="tlPlayhead" x1="0" y1="0" x2="0" y2="72"></line>
+                  </svg>
+                  <div class="timeline-scale" id="timelineScale"><span>00:00</span><span>00:00</span></div>
+                </div>
+                <div class="trim-block">
+                  <div class="trim-heading">
+                    <h3>Вырезать фрагмент</h3>
+                    <span class="hint" id="trimLength">Длительность: —</span>
+                  </div>
+                  <div class="trim-grid">
+                    <label class="field">
+                      <span class="field-label">Начало, сек</span>
+                      <input id="trimStart" class="input" type="number" min="0" step="0.01" disabled>
+                      <span class="field-note" id="trimStartNote">00:00.000</span>
+                    </label>
+                    <label class="field">
+                      <span class="field-label">Конец, сек</span>
+                      <input id="trimEnd" class="input" type="number" min="0" step="0.01" disabled>
+                      <span class="field-note" id="trimEndNote">00:00.000</span>
+                    </label>
+                    <div class="trim-buttons">
+                      <button type="button" class="btn btn-ghost btn-sm" id="trimStartHereBtn" disabled>Начало = кадр</button>
+                      <button type="button" class="btn btn-ghost btn-sm" id="trimEndHereBtn" disabled>Конец = кадр</button>
+                      <button type="button" class="btn btn-ghost btn-sm" id="trimFullBtn" disabled>Весь ролик</button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside class="workspace-side">
+              <section class="panel" aria-labelledby="sourceTitle">
+                <div class="panel-head compact">
+                  <div><p class="eyebrow">Источник</p><h2 id="sourceTitle">Файл</h2></div>
+                  <span class="badge badge-ok" id="sourceKind">—</span>
+                </div>
+                <h3 class="source-name" id="sourceName">—</h3>
+                <dl class="meta-grid" id="sourceMeta"></dl>
+                <p class="hint" id="sourcePrivacy">Оригинал не изменяется. Результат экспортируется в отдельный файл.</p>
+                <div class="panel-actions">
+                  <button type="button" class="btn btn-secondary btn-sm" id="changeSourceBtn">Открыть другое</button>
+                  <button type="button" class="btn btn-danger-ghost btn-sm" id="closeSourceBtn">Закрыть видео</button>
+                </div>
+              </section>
+
+              <section class="panel" aria-labelledby="facesTitle">
+                <div class="panel-head compact">
+                  <div><p class="eyebrow">Анонимизация</p><h2 id="facesTitle">Лица</h2></div>
+                </div>
+                <label class="switch-row">
+                  <input id="blurEnabled" type="checkbox" disabled>
+                  <span class="switch-ui" aria-hidden="true"></span>
+                  <span><strong>Блюрить лица</strong><small>Автоматически, без разметки</small></span>
+                </label>
+                <div class="field-grid">
+                  <label class="field">
+                    <span class="field-label">Метод</span>
+                    <select id="blurMethod" class="input" disabled>
+                      <option value="gaussian">Размытие</option>
+                      <option value="pixelate">Пиксели</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Сила <output id="blurStrengthOut">3.0</output></span>
+                    <input id="blurStrength" type="range" min="1" max="5" step="0.1" value="3" disabled>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Запас вокруг лица <output id="blurMarginOut">22%</output></span>
+                    <input id="blurMargin" type="range" min="0" max="0.45" step="0.01" value="0.22" disabled>
+                  </label>
+                </div>
+                <label class="check-row"><input id="showBoxes" type="checkbox" disabled><span>Показывать рамки в предпросмотре</span></label>
+                <p class="hint">Рамки не попадут в итоговое видео.</p>
+                <p class="warning" id="detectorWarning" hidden></p>
+              </section>
+
+              <section class="panel" aria-labelledby="voiceTitle">
+                <div class="panel-head compact">
+                  <div><p class="eyebrow">Анонимизация</p><h2 id="voiceTitle">Голос</h2></div>
+                  <span class="badge" id="audioBadge">—</span>
+                </div>
+                <div class="field-grid">
+                  <label class="field">
+                    <span class="field-label">Сдвиг тона <output id="voiceOut">−3.0 полутона</output></span>
+                    <input id="voiceSemitones" type="range" min="-12" max="12" step="0.5" value="-3" disabled>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Громкость <output id="volumeOut">100%</output></span>
+                    <input id="volume" type="range" min="0" max="2" step="0.05" value="1" disabled>
+                  </label>
+                </div>
+                <label class="check-row"><input id="preserveFormants" type="checkbox" disabled><span>Сохранять тембр <em>(менее анонимно)</em></span></label>
+                <label class="check-row"><input id="mute" type="checkbox" disabled><span>Убрать звук из результата</span></label>
+                <p class="hint" id="voiceHint">Голос меняется только внутри выбранных диапазонов.</p>
+              </section>
+
+              <section class="panel" aria-labelledby="regionsTitle">
+                <div class="panel-head compact">
+                  <div><p class="eyebrow">Таймлайн</p><h2 id="regionsTitle">Диапазоны эффектов</h2></div>
+                  <span class="badge" id="regionCount">0</span>
+                </div>
+                <p class="hint">Вне диапазонов видео и звук остаются оригинальными. «Разделить» режет диапазон по текущему кадру.</p>
+                <div class="regions-scroll">
+                  <table class="regions-table" id="regionsTable">
+                    <thead>
+                      <tr><th>Начало</th><th>Конец</th><th>Блюр</th><th>Голос</th><th><span class="sr-only">Действия</span></th></tr>
+                    </thead>
+                    <tbody id="regionsBody"></tbody>
+                  </table>
+                  <p class="empty-note" id="regionsEmpty" hidden>Диапазонов нет — блюр и смена голоса выключены.</p>
+                </div>
+                <div class="region-actions">
+                  <button type="button" class="btn btn-secondary btn-sm" id="addRegionBtn" disabled>+ Добавить</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="resetRegionsBtn" disabled>Сбросить</button>
+                </div>
+              </section>
+
+              <section class="panel" aria-labelledby="exportTitle">
+                <div class="panel-head compact">
+                  <div><p class="eyebrow">Результат</p><h2 id="exportTitle">Экспорт</h2></div>
+                  <span class="badge" id="exportBadge">MP4</span>
+                </div>
+                <div class="field-grid two">
+                  <label class="field">
+                    <span class="field-label">Качество (CRF) <output id="crfOut">20</output></span>
+                    <input id="crf" type="range" min="0" max="51" step="1" value="20" disabled>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">Скорость</span>
+                    <select id="preset" class="input" disabled>
+                      <option value="ultrafast">Самая быстрая</option>
+                      <option value="superfast">Очень быстро</option>
+                      <option value="veryfast">Быстро</option>
+                      <option value="faster">Быстрее</option>
+                      <option value="fast">Средне-быстро</option>
+                      <option value="medium">Среднее</option>
+                      <option value="slow">Медленно</option>
+                      <option value="slower">Очень медленно</option>
+                      <option value="veryslow">Максимум</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="hint">H.264 + AAC, метаданные удаляются. Оригинал не перезаписывается.</p>
+                <button type="button" class="btn btn-primary btn-wide" id="exportBtn" disabled>Экспортировать MP4</button>
+                <div class="job" id="jobBox" hidden>
+                  <div class="job-head"><span id="jobStatus">Подготовка…</span><span id="jobPercent">0%</span></div>
+                  <progress id="jobProgress" max="1" value="0"></progress>
+                  <p class="hint" id="jobMessage"></p>
+                  <pre class="job-error" id="jobError" hidden></pre>
+                  <div class="job-actions">
+                    <a class="btn btn-primary btn-sm" id="downloadLink" href="#" download hidden>Скачать MP4</a>
+                    <button type="button" class="btn btn-ghost btn-sm" id="cancelJobBtn" hidden>Отменить</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="deleteJobBtn" hidden>Удалить результат</button>
+                  </div>
+                </div>
+                <p class="hint" id="exportHint">Сначала откройте видео.</p>
+              </section>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Anomizer <span id="versionLabel">__ANOMIZER_VERSION__</span> · работает офлайн, без облака и аккаунтов.</p>
+      <p>Сервер слушает только 127.0.0.1. Не передавайте ссылку с кодом доступа.</p>
+    </footer>
+  </div>
+
+  <audio id="previewAudio" preload="none"></audio>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>

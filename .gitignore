@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+*.part
+.ruff_cache/
+*_anonymized.mp4
+build/
+dist/
+.build/

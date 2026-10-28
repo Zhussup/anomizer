@@ -1,0 +1,10 @@
+# Dependencies for producing the standalone Linux/Windows builds.
+# opencv-python-headless avoids pulling GTK/Qt into the bundle; neither the
+# desktop UI (Tkinter) nor the web UI uses OpenCV's HighGUI windows.
+numpy>=1.24
+opencv-python-headless>=4.8
+Pillow>=10.0
+imageio-ffmpeg>=0.5
+fastapi>=0.110
+uvicorn>=0.29
+pyinstaller>=6.11,<7
